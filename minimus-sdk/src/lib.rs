@@ -1,0 +1,269 @@
+//! # Minimus SDK
+//!
+//! Optimized ML inference SDK for embedded and mobile devices.
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! use minimus_sdk::Minimus;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Initialize SDK
+//!     let minimus = Minimus::new();
+//!
+//!     // List available models
+//!     for model in minimus.available_models() {
+//!         println!("{}: {}", model.id, model.description);
+//!     }
+//!
+//!     // Load a model (downloads if needed)
+//!     let model = minimus.load("plant-disease-v1").await?;
+//!
+//!     // Run prediction
+//!     let image_bytes = std::fs::read("leaf.jpg")?;
+//!     let result = model.predict(&image_bytes)?;
+//!     
+//!     println!("Prediction: {} ({:.1}%)", 
+//!         result.display_label(), 
+//!         result.confidence_percent()
+//!     );
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Features
+//!
+//! - `download` (default): Enables model downloading from remote URLs
+//!
+//! ## Loading Models
+//!
+//! Models can be loaded in several ways:
+//!
+//! 1. **From registry with auto-download:**
+//!    ```rust,no_run
+//!    let model = minimus.load("plant-disease-v1").await?;
+//!    ```
+//!
+//! 2. **From embedded bytes:**
+//!    ```rust,no_run
+//!    let bytes = include_bytes!("model.onnx");
+//!    let model = minimus.load_from_bytes("plant-disease-v1", bytes)?;
+//!    ```
+//!
+//! 3. **Custom model:**
+//!    ```rust,no_run
+//!    let info = ModelInfo::builder("my-model")
+//!        .name("My Custom Model")
+//!        .input_size(224, 224)
+//!        .classes_static(&["cat", "dog"])
+//!        .build();
+//!    let model = MinimusModel::load_custom(bytes, info)?;
+//!    ```
+
+mod error;
+mod inference;
+mod loader;
+mod model;
+pub mod models;
+mod registry;
+
+pub use error::MinimusError;
+pub use inference::{InferenceConfig, Prediction};
+pub use loader::ModelLoader;
+pub use model::MinimusModel;
+pub use registry::{ModelInfo, ModelInfoBuilder, ModelRegistry, ModelType, REGISTRY};
+
+use std::path::PathBuf;
+
+/// Main SDK interface
+pub struct Minimus {
+    loader: ModelLoader,
+}
+
+impl Minimus {
+    /// Create a new SDK instance with default cache directory
+    pub fn new() -> Self {
+        Self {
+            loader: ModelLoader::default(),
+        }
+    }
+
+    /// Create SDK with a custom cache directory
+    pub fn with_cache_dir(cache_dir: PathBuf) -> Self {
+        Self {
+            loader: ModelLoader::new(cache_dir),
+        }
+    }
+
+    /// Get the model loader
+    pub fn loader(&self) -> &ModelLoader {
+        &self.loader
+    }
+
+    // ========== Model Discovery ==========
+
+    /// List all available models in the registry
+    pub fn available_models(&self) -> Vec<&ModelInfo> {
+        REGISTRY.list()
+    }
+
+    /// List models by type
+    pub fn models_by_type(&self, model_type: ModelType) -> Vec<&ModelInfo> {
+        REGISTRY.list_by_type(model_type)
+    }
+
+    /// Search models by name or description
+    pub fn search_models(&self, query: &str) -> Vec<&ModelInfo> {
+        REGISTRY.search(query)
+    }
+
+    /// Get info for a specific model
+    pub fn model_info(&self, model_id: &str) -> Option<&ModelInfo> {
+        REGISTRY.get(model_id)
+    }
+
+    /// Check if a model exists in the registry
+    pub fn model_exists(&self, model_id: &str) -> bool {
+        REGISTRY.exists(model_id)
+    }
+
+    // ========== Model Status ==========
+
+    /// Check if a model is downloaded/cached
+    pub fn is_downloaded(&self, model_id: &str) -> bool {
+        REGISTRY
+            .get(model_id)
+            .map(|info| self.loader.is_cached(info))
+            .unwrap_or(false)
+    }
+
+    /// Get download status for all models
+    pub fn download_status(&self) -> Vec<(&ModelInfo, bool)> {
+        REGISTRY
+            .list()
+            .into_iter()
+            .map(|info| (info, self.loader.is_cached(info)))
+            .collect()
+    }
+
+    // ========== Model Loading ==========
+
+    /// Load a model by ID (downloads if needed and `download` feature is enabled)
+    #[cfg(feature = "download")]
+    pub async fn load(&self, model_id: &str) -> Result<MinimusModel, MinimusError> {
+        let info = REGISTRY
+            .get(model_id)
+            .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?;
+
+        let bytes = self.loader.load_bytes(info).await?;
+        MinimusModel::load(model_id, &bytes)
+    }
+
+    /// Load a model by ID (cache-only when download feature is disabled)
+    #[cfg(not(feature = "download"))]
+    pub async fn load(&self, model_id: &str) -> Result<MinimusModel, MinimusError> {
+        let info = REGISTRY
+            .get(model_id)
+            .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?;
+
+        let bytes = self.loader.load_from_cache(info)?;
+        MinimusModel::load(model_id, &bytes)
+    }
+
+    /// Load a model from provided bytes (no download)
+    pub fn load_from_bytes(
+        &self,
+        model_id: &str,
+        bytes: &[u8],
+    ) -> Result<MinimusModel, MinimusError> {
+        MinimusModel::load(model_id, bytes)
+    }
+
+    /// Load a model from bytes with custom config
+    pub fn load_from_bytes_with_config(
+        &self,
+        model_id: &str,
+        bytes: &[u8],
+        config: InferenceConfig,
+    ) -> Result<MinimusModel, MinimusError> {
+        MinimusModel::load_with_config(model_id, bytes, config)
+    }
+
+    /// Load a custom model (not in registry)
+    pub fn load_custom(
+        &self,
+        bytes: &[u8],
+        info: ModelInfo,
+    ) -> Result<MinimusModel, MinimusError> {
+        MinimusModel::load_custom(bytes, info)
+    }
+
+    // ========== Download Management ==========
+
+    /// Download a model without loading it (for pre-caching)
+    #[cfg(feature = "download")]
+    pub async fn download(&self, model_id: &str) -> Result<(), MinimusError> {
+        let info = REGISTRY
+            .get(model_id)
+            .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?;
+
+        let bytes = self.loader.download(info).await?;
+        self.loader.save_to_cache(info, &bytes)?;
+        Ok(())
+    }
+
+    /// Download multiple models
+    #[cfg(feature = "download")]
+    pub async fn download_many(&self, model_ids: &[&str]) -> Vec<Result<(), MinimusError>> {
+        let mut results = Vec::new();
+        for id in model_ids {
+            results.push(self.download(id).await);
+        }
+        results
+    }
+
+    // ========== Cache Management ==========
+
+    /// Get total cache size in MB
+    pub fn cache_size_mb(&self) -> f32 {
+        self.loader.cache_size_mb()
+    }
+
+    /// Clear a specific model from cache
+    pub fn clear_model(&self, model_id: &str) -> Result<(), MinimusError> {
+        let info = REGISTRY
+            .get(model_id)
+            .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?;
+        self.loader.clear(info)
+    }
+
+    /// Clear all cached models
+    pub fn clear_cache(&self) -> Result<(), MinimusError> {
+        self.loader.clear_all()
+    }
+}
+
+impl Default for Minimus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ========== Convenience Functions ==========
+
+/// Quick prediction without managing SDK instance
+pub fn quick_predict(
+    model_id: &str,
+    model_bytes: &[u8],
+    image_bytes: &[u8],
+) -> Result<Prediction, MinimusError> {
+    let model = MinimusModel::load(model_id, model_bytes)?;
+    model.predict(image_bytes)
+}
+
+/// Get version of the SDK
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
