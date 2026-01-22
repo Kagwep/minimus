@@ -1,12 +1,11 @@
 use thiserror::Error;
+use tract_onnx::prelude::TractError;
 
 #[derive(Error, Debug)]
 pub enum MinimusError {
     #[error("Model not found in registry: {0}")]
     ModelNotFound(String),
 
-    #[error("Model loading failed: {0}")]
-    ModelLoad(String),
 
     #[error("Image processing failed: {0}")]
     ImageError(#[from] image::ImageError),
@@ -29,11 +28,13 @@ pub enum MinimusError {
 
     #[error("Model not downloaded and download feature is disabled")]
     DownloadDisabled,
+
+    #[error("Model loading failed: {0}")]
+    ModelLoad(String),
 }
 
-// Manual conversion since tract errors don't implement std::error::Error nicely
-impl From<tract_onnx::tract_core::TractError> for MinimusError {
-    fn from(e: tract_onnx::tract_core::TractError) -> Self {
-        MinimusError::ModelLoad(e.to_string())
+impl From<TractError> for MinimusError {
+    fn from(e: TractError) -> Self {
+        MinimusError::ModelLoad(format!("{e:?}"))
     }
 }

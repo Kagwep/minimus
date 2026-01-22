@@ -161,6 +161,8 @@ impl ModelRegistry {
                 .classes_static(&crate::models::plant_disease::CLASSES)
                 .version("1.0.0")
                 .size_mb(12.5)
+                .download_url("https://github.com/Kagwep/minimus/releases/download/models-v1.0.0/plant-disease-v1.onnx")
+                .sha256("34177F41F3EAE3966989FEE1F022A22BC8798A11B7798BD8EB6CA246DB216C26") 
                 .build()
         );
 
