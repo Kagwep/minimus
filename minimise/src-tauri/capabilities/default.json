@@ -10,6 +10,8 @@
     "dialog:default",
     "opener:default",
     "fs:default",
+    "fs:allow-read",
+    "fs:allow-write",
     {
       "identifier": "fs:scope",
       "allow": ["**"]

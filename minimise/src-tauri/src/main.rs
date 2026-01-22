@@ -105,6 +105,7 @@ async fn predict(image_path: String) -> Result<String, String> {
 }
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![predict])
         .run(tauri::generate_context!())
