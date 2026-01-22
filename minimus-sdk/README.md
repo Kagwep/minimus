@@ -1,163 +1,72 @@
 # Minimus SDK
 
-Optimized ML inference SDK for embedded and mobile devices.
+Optimized ML inference SDK for mobile and embedded devices.
+
+## Overview
+
+Minimus SDK provides pre-trained, optimized machine learning models that "just work" on resource-constrained devices. No ML expertise required - download, load, predict.
 
 ## Features
 
-- 🚀 **Lightweight**: Minimal dependencies, small binary size
-- 📱 **Cross-platform**: Works on desktop, mobile (via Tauri), and embedded
-- 🔌 **Simple API**: Load models and run predictions in a few lines
-- 📦 **Model Registry**: Built-in catalog of optimized models
-- ⬇️ **On-demand Downloads**: Only download models you need
-- 💾 **Local Caching**: Models are cached for offline use
-
-## Quick Start
-
-```rust
-use minimus_sdk::Minimus;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let minimus = Minimus::new();
-
-    // List available models
-    for model in minimus.available_models() {
-        let status = if minimus.is_downloaded(&model.id) { "✓" } else { "○" };
-        println!("{} {} - {}", status, model.name, model.description);
-    }
-
-    // Load a model (auto-downloads if needed)
-    let model = minimus.load("plant-disease-v1").await?;
-
-    // Run prediction
-    let image = std::fs::read("leaf.jpg")?;
-    let result = model.predict(&image)?;
-    
-    println!("Prediction: {} ({:.1}%)", 
-        result.display_label(), 
-        result.confidence_percent()
-    );
-
-    Ok(())
-}
-```
-
-## Installation
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-minimus-sdk = "0.1"
-```
-
-### Feature Flags
-
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `download` | ✓ | Enable model downloading from remote URLs |
-
-To disable downloads (embedded-only mode):
-
-```toml
-[dependencies]
-minimus-sdk = { version = "0.1", default-features = false }
-```
-
-## Loading Models
-
-### 1. From Registry (Auto-download)
-
-```rust
-let model = minimus.load("plant-disease-v1").await?;
-```
-
-### 2. From Embedded Bytes
-
-```rust
-let bytes = include_bytes!("../models/plant-disease.onnx");
-let model = minimus.load_from_bytes("plant-disease-v1", bytes)?;
-```
-
-### 3. Custom Model
-
-```rust
-use minimus_sdk::{ModelInfo, ModelType, MinimusModel};
-
-let info = ModelInfo::builder("my-classifier")
-    .name("My Custom Classifier")
-    .description("Classifies things")
-    .model_type(ModelType::ImageClassification)
-    .input_size(224, 224)
-    .classes_static(&["cat", "dog", "bird"])
-    .build();
-
-let bytes = std::fs::read("my-model.onnx")?;
-let model = MinimusModel::load_custom(&bytes, info)?;
-```
-
-## Running Predictions
-
-### Single Prediction
-
-```rust
-let result = model.predict(&image_bytes)?;
-println!("{}: {:.1}%", result.label, result.confidence_percent());
-```
-
-### Top-K Predictions
-
-```rust
-let results = model.predict_topk(&image_bytes, 5)?;
-for pred in results {
-    println!("{}: {:.1}%", pred.display_label(), pred.confidence_percent());
-}
-```
-
-## Cache Management
-
-```rust
-// Check cache size
-println!("Cache: {:.1} MB", minimus.cache_size_mb());
-
-// Clear specific model
-minimus.clear_model("plant-disease-v1")?;
-
-// Clear all cache
-minimus.clear_cache()?;
-```
+- **Curated Model Registry** - Discover and search optimized models
+- **Automatic Downloading** - Models download on first use and cache locally
+- **Checksum Verification** - Ensures model integrity
+- **Optimized for Edge** - Quantized models for mobile/embedded deployment
+- **Simple API** - Load and predict in just a few lines of code
 
 ## Available Models
 
-| ID | Name | Type | Size |
-|----|------|------|------|
-| `plant-disease-v1` | Plant Disease Detector | Classification | 12.5 MB |
+### Agriculture
 
-## Use with Tauri
+| Model ID | Description | Classes | Size |
+|----------|-------------|---------|------|
+| `plant-disease-v1` | Identifies plant diseases from leaf images | 38 | 12.5 MB |
 
-```rust
-use minimus_sdk::{Minimus, MinimusModel};
-use std::sync::Arc;
-use tauri::State;
-use tokio::sync::RwLock;
+### Livestock (Coming Soon)
 
-struct AppState {
-    model: RwLock<Option<MinimusModel>>,
-}
+| Model ID | Description | Classes | Size |
+|----------|-------------|---------|------|
+| `poultry-disease-v1` | Detects poultry diseases from fecal images | 4 | TBD |
 
-#[tauri::command]
-async fn predict(
-    state: State<'_, AppState>,
-    image_bytes: Vec<u8>,
-) -> Result<String, String> {
-    let model = state.model.read().await;
-    let model = model.as_ref().ok_or("Model not loaded")?;
-    
-    let result = model.predict(&image_bytes).map_err(|e| e.to_string())?;
-    Ok(result.display_label())
-}
-```
+### Health (Coming Soon)
+
+| Model ID | Description | Input | Size |
+|----------|-------------|-------|------|
+| `cough-detector-v1` | Detects cough sounds for health screening | Audio | TBD |
+
+## Why Minimus?
+
+### Built for African Challenges
+
+- **Agriculture** - Detect crop diseases early to prevent losses
+- **Livestock** - Monitor animal health in rural areas
+- **Healthcare** - Enable screening where specialists are scarce
+
+### Built for Constraints
+
+- **Low bandwidth** - Models download once, cache forever
+- **Limited storage** - Quantized models, small footprint
+- **Offline-first** - Works without internet after first download
+- **Low-power devices** - Optimized inference
+
+## Roadmap
+
+- [x] Model registry with metadata
+- [x] Automatic downloading and caching
+- [x] Checksum verification
+- [x] Plant disease detection model
+- [ ] Poultry disease detection model
+- [ ] Cough detection model
+- [ ] Model quantization utilities
+- [ ] Android/iOS examples
+- [ ] WASM support
+
+
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+*Minimus: Minimum footprint, maximum impact.*
