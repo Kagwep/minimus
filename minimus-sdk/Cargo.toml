@@ -18,7 +18,7 @@ tract-onnx = "0.22.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
 # Async & networking (optional, for model downloading)
-reqwest = { version = "0.11", features = ["rustls-tls"], optional = true }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json"], optional = true }
 tokio = { version = "1", features = ["rt", "fs"], optional = true }
 
 # Utilities
