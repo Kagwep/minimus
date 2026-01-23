@@ -1,0 +1,8 @@
+[package]
+name = "minimus-nnef"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tract-nnef = "0.22.0"
+tract-onnx = "0.22.0"

@@ -6,6 +6,24 @@ use tract_onnx::prelude::*;
 use std::path::Path;
 use minimus_sdk::Minimus;
 use std::sync::OnceLock;
+use once_cell::sync::Lazy;
+
+type Model = SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>;
+
+static MODEL: Lazy<Result<Model, String>> = Lazy::new(|| {
+    tract_nnef::nnef()
+        .with_tract_core()
+        .model_for_path("plant_disease_nnef")
+        .map_err(|e| format!("Load failed: {:#}", e))?
+        .into_optimized()
+        .map_err(|e| format!("Optimization failed: {:#}", e))?
+        .into_runnable()
+        .map_err(|e| format!("Runnable failed: {:#}", e))
+});
+
+fn get_model() -> Result<&'static Model, String> {
+    MODEL.as_ref().map_err(|e| e.clone())
+}
 
 static CLASSES: &[&str] = &[
     "Apple___Apple_scab", "Apple___Black_rot", "Apple___Cedar_apple_rust", "Apple___healthy",
@@ -22,23 +40,7 @@ static CLASSES: &[&str] = &[
     "Tomato___Target_Spot", "Tomato___Tomato_mosaic_virus", "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
 ];
 
-// fn preprocess_image(path: &str) -> Array4<f32> {
-//     let img = image::open(path).expect("Failed to open image");
-//     let img = img.resize_exact(256, 256, FilterType::Triangle);
-    
-//     let mut array = Array4::<f32>::zeros((1, 3, 256, 256));
-    
-//     for y in 0..256 {
-//         for x in 0..256 {
-//             let pixel = img.get_pixel(x, y);
-//             array[[0, 0, y as usize, x as usize]] = pixel[0] as f32 / 255.0;
-//             array[[0, 1, y as usize, x as usize]] = pixel[1] as f32 / 255.0;
-//             array[[0, 2, y as usize, x as usize]] = pixel[2] as f32 / 255.0;
-//         }
-//     }
-    
-//     array
-// }
+
 
 static MINIMUS: OnceLock<Minimus> = OnceLock::new();
 
@@ -48,30 +50,7 @@ fn get_minimus() -> &'static Minimus {
 
 #[tauri::command]
 async fn predict(image_path: String) -> Result<String, String> {
-    let minimus = get_minimus();
-
-    let info = minimus.model_info("plant-disease-v1")
-        .ok_or("Model not found in registry")?;
-
-    
-    let model_bytes = minimus.loader()
-        .load_bytes(info)
-        .await
-        .map_err(|e| format!("Failed to load model: {}", e))?;
-
-    let mut cursor = std::io::Cursor::new(&model_bytes);
-
-    // 1. Load the model (Pure Rust - no linker issues!)
-    let model = tract_onnx::onnx()
-        .model_for_read(&mut cursor)
-        .map_err(|e| format!("Failed to load model: {}", e))?
-        .with_input_fact(0, f32::fact(&[1, 3, 256, 256]).into())
-        .map_err(|e| format!("Failed to set input fact: {}", e))?
-        .into_optimized()
-        .map_err(|e| format!("Failed to optimize model: {}", e))?
-        .into_runnable()
-        .map_err(|e| format!("Failed to make runnable: {}", e))?;
-
+    let model = get_model()?;
     // 2. Preprocess image into a Tract Tensor
     let img = image::open(&image_path).map_err(|e| e.to_string())?;
     let resized = img.resize_exact(256, 256, image::imageops::FilterType::Triangle);

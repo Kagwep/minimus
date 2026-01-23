@@ -1,6 +1,6 @@
 # Minimus SDK
 
-Optimized ML inference SDK for mobile and embedded devices, built with African challenges in mind.
+Optimized ML inference SDK for mobile and embedded devices.
 
 ## Overview
 
@@ -36,7 +36,7 @@ Minimus SDK provides pre-trained, optimized machine learning models that "just w
 
 ## Why Minimus?
 
-### Built for African Challenges
+### Built for
 
 - **Agriculture** - Detect crop diseases early to prevent losses
 - **Livestock** - Monitor animal health in rural areas
@@ -65,7 +65,6 @@ Minimus SDK provides pre-trained, optimized machine learning models that "just w
 
 We welcome contributions, especially:
 
-- New models relevant to African challenges
 - Optimizations for specific hardware
 - Documentation and examples
 - Bug reports and fixes

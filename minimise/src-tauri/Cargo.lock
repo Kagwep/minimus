@@ -2647,6 +2647,7 @@ dependencies = [
  "image",
  "minimus-sdk",
  "ndarray 0.17.1",
+ "once_cell",
  "serde",
  "serde_json",
  "tauri",
@@ -2654,6 +2655,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-opener",
+ "tract-nnef",
  "tract-onnx",
 ]
 

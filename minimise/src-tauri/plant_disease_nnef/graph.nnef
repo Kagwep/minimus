@@ -1,0 +1,69 @@
+version 1.0;
+
+extension tract_symbol batch;
+
+fragment tract_core_properties(
+) -> (properties: (string, tensor<scalar>)[])
+{
+  properties = [("tract_nnef_ser_version", "0.22.0"), ("tract_nnef_format_version", "beta1")];
+}
+
+graph network(image) -> (prediction) {
+  image = external(shape = [1, 3, 256, 256]);
+  onnx__Conv_92_0 = variable<scalar>(label = "onnx__Conv_92_0", shape = [64, 3, 3, 3]);
+  conv1_conv1_0_Conv_bias = variable<scalar>(label = "conv1_conv1_0_Conv_bias", shape = [64]);
+  conv1_conv1_0_Conv_conv = conv(image, onnx__Conv_92_0, conv1_conv1_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  conv1_conv1_0_Conv = conv1_conv1_0_Conv_conv;
+  conv1_conv1_2_Relu_low_cst = [[[[0.0]]]];
+  conv1_conv1_2_Relu_low = max(conv1_conv1_0_Conv, conv1_conv1_2_Relu_low_cst);
+  onnx__Conv_95_0 = variable<scalar>(label = "onnx__Conv_95_0", shape = [128, 64, 3, 3]);
+  conv2_conv2_0_Conv_bias = variable<scalar>(label = "conv2_conv2_0_Conv_bias", shape = [128]);
+  conv2_conv2_0_Conv_conv = conv(conv1_conv1_2_Relu_low, onnx__Conv_95_0, conv2_conv2_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  conv2_conv2_0_Conv = conv2_conv2_0_Conv_conv;
+  conv2_conv2_2_Relu_low = max(conv2_conv2_0_Conv, conv1_conv1_2_Relu_low_cst);
+  conv2_conv2_3_MaxPool = max_pool(conv2_conv2_2_Relu_low, size = [1, 1, 4, 4], dilation = [1, 1, 1, 1], stride = [1, 1, 4, 4], border = "ignore", padding = [(0, 0), (0, 0), (0, 0), (0, 0)]);
+  onnx__Conv_98_0 = variable<scalar>(label = "onnx__Conv_98_0", shape = [128, 128, 3, 3]);
+  res1_res1_0_res1_0_0_Conv_bias = variable<scalar>(label = "res1_res1_0_res1_0_0_Conv_bias", shape = [128]);
+  res1_res1_0_res1_0_0_Conv_conv = conv(conv2_conv2_3_MaxPool, onnx__Conv_98_0, res1_res1_0_res1_0_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  res1_res1_0_res1_0_0_Conv = res1_res1_0_res1_0_0_Conv_conv;
+  res1_res1_0_res1_0_2_Relu_low = max(res1_res1_0_res1_0_0_Conv, conv1_conv1_2_Relu_low_cst);
+  onnx__Conv_101_0 = variable<scalar>(label = "onnx__Conv_101_0", shape = [128, 128, 3, 3]);
+  res1_res1_1_res1_1_0_Conv_bias = variable<scalar>(label = "res1_res1_1_res1_1_0_Conv_bias", shape = [128]);
+  res1_res1_1_res1_1_0_Conv_conv = conv(res1_res1_0_res1_0_2_Relu_low, onnx__Conv_101_0, res1_res1_1_res1_1_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  res1_res1_1_res1_1_0_Conv = res1_res1_1_res1_1_0_Conv_conv;
+  res1_res1_1_res1_1_2_Relu_low = max(res1_res1_1_res1_1_0_Conv, conv1_conv1_2_Relu_low_cst);
+  Add = add(res1_res1_1_res1_1_2_Relu_low, conv2_conv2_3_MaxPool);
+  onnx__Conv_104_0 = variable<scalar>(label = "onnx__Conv_104_0", shape = [256, 128, 3, 3]);
+  conv3_conv3_0_Conv_bias = variable<scalar>(label = "conv3_conv3_0_Conv_bias", shape = [256]);
+  conv3_conv3_0_Conv_conv = conv(Add, onnx__Conv_104_0, conv3_conv3_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  conv3_conv3_0_Conv = conv3_conv3_0_Conv_conv;
+  conv3_conv3_2_Relu_low = max(conv3_conv3_0_Conv, conv1_conv1_2_Relu_low_cst);
+  conv3_conv3_3_MaxPool = max_pool(conv3_conv3_2_Relu_low, size = [1, 1, 4, 4], dilation = [1, 1, 1, 1], stride = [1, 1, 4, 4], border = "ignore", padding = [(0, 0), (0, 0), (0, 0), (0, 0)]);
+  onnx__Conv_107_0 = variable<scalar>(label = "onnx__Conv_107_0", shape = [512, 256, 3, 3]);
+  conv4_conv4_0_Conv_bias = variable<scalar>(label = "conv4_conv4_0_Conv_bias", shape = [512]);
+  conv4_conv4_0_Conv_conv = conv(conv3_conv3_3_MaxPool, onnx__Conv_107_0, conv4_conv4_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  conv4_conv4_0_Conv = conv4_conv4_0_Conv_conv;
+  conv4_conv4_2_Relu_low = max(conv4_conv4_0_Conv, conv1_conv1_2_Relu_low_cst);
+  conv4_conv4_3_MaxPool = max_pool(conv4_conv4_2_Relu_low, size = [1, 1, 4, 4], dilation = [1, 1, 1, 1], stride = [1, 1, 4, 4], border = "ignore", padding = [(0, 0), (0, 0), (0, 0), (0, 0)]);
+  onnx__Conv_110_0 = variable<scalar>(label = "onnx__Conv_110_0", shape = [512, 512, 3, 3]);
+  res2_res2_0_res2_0_0_Conv_bias = variable<scalar>(label = "res2_res2_0_res2_0_0_Conv_bias", shape = [512]);
+  res2_res2_0_res2_0_0_Conv_conv = conv(conv4_conv4_3_MaxPool, onnx__Conv_110_0, res2_res2_0_res2_0_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  res2_res2_0_res2_0_0_Conv = res2_res2_0_res2_0_0_Conv_conv;
+  res2_res2_0_res2_0_2_Relu_low = max(res2_res2_0_res2_0_0_Conv, conv1_conv1_2_Relu_low_cst);
+  onnx__Conv_113_0 = variable<scalar>(label = "onnx__Conv_113_0", shape = [512, 512, 3, 3]);
+  res2_res2_1_res2_1_0_Conv_bias = variable<scalar>(label = "res2_res2_1_res2_1_0_Conv_bias", shape = [512]);
+  res2_res2_1_res2_1_0_Conv_conv = conv(res2_res2_0_res2_0_2_Relu_low, onnx__Conv_113_0, res2_res2_1_res2_1_0_Conv_bias, dilation = [1, 1], stride = [1, 1], border = "constant", groups = 1, padding = [(1, 1), (1, 1)]);
+  res2_res2_1_res2_1_0_Conv = res2_res2_1_res2_1_0_Conv_conv;
+  res2_res2_1_res2_1_2_Relu_low = max(res2_res2_1_res2_1_0_Conv, conv1_conv1_2_Relu_low_cst);
+  Add_1 = add(res2_res2_1_res2_1_2_Relu_low, conv4_conv4_3_MaxPool);
+  classifier_classifier_0_MaxPool = max_pool(Add_1, size = [1, 1, 4, 4], dilation = [1, 1, 1, 1], stride = [1, 1, 4, 4], border = "ignore", padding = [(0, 0), (0, 0), (0, 0), (0, 0)]);
+  classifier_classifier_2_Gemm_ab_fix_a = transpose(classifier_classifier_0_MaxPool, axes = [2, 0, 1, 3]);
+  classifier_classifier_2_Gemm_ab_fix_a_1 = transpose(classifier_classifier_2_Gemm_ab_fix_a, axes = [0, 3, 1, 2]);
+  classifier_classifier_2_Gemm_ab_fix_b_1 = variable<scalar>(label = "classifier_classifier_2_Gemm_ab.fix_b.1", shape = [1, 1, 38, 512]);
+  classifier_classifier_2_Gemm_ab = matmul(classifier_classifier_2_Gemm_ab_fix_a_1, classifier_classifier_2_Gemm_ab_fix_b_1, transposeA = false, transposeB = true);
+  classifier_classifier_2_Gemm_ab_fix_c_0 = squeeze(classifier_classifier_2_Gemm_ab, axes = [1]);
+  classifier_classifier_2_Gemm_ab_fix_c_1 = squeeze(classifier_classifier_2_Gemm_ab_fix_c_0, axes = [0]);
+  classifier_classifier_2_Gemm_beta_c = variable<scalar>(label = "classifier_classifier_2_Gemm_beta_c", shape = [1, 38]);
+  classifier_classifier_2_Gemm = add(classifier_classifier_2_Gemm_ab_fix_c_1, classifier_classifier_2_Gemm_beta_c);
+  prediction = classifier_classifier_2_Gemm;
+}

@@ -28,3 +28,5 @@ ndarray = "0.17.1"
 tauri-plugin-dialog = "2"
 tract-onnx = "0.22.0"
 minimus-sdk = { path = "../../minimus-sdk" }
+tract-nnef = "0.22.0"
+once_cell = "1.21.3"
