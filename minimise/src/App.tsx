@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import "./App.css"
@@ -10,33 +10,31 @@ function App() {
   const [prediction, setPrediction] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-const selectImage = async () => {
-  try {
-    const file = await open({
-      multiple: false,
-      filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png"] }],
-    });
+  const selectImage = async () => {
+    try {
+      const file = await open({
+        multiple: false,
+        filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png"] }],
+      });
 
-    if (file && typeof file === "string") {
-      setImagePath(file);
-
-      // Check if it's an Android content URI
-      if (file.startsWith('content://')) {
-        // Read the file bytes directly using the FS plugin
+      if (file && typeof file === "string") {
+        setImagePath(file);
+        
+        // 1. Get the raw bytes (We know this works because your prediction uses it!)
         const contents = await readFile(file);
-        // Create a Blob and a URL the <img> tag can actually see
-        const blob = new Blob([contents]);
+        
+        // 2. Wrap them in a Blob (Much faster than Base64)
+        const blob = new Blob([contents], { type: "image/jpeg" });
+        
+        // 3. Create a URL that the <img> tag can actually use
         const url = URL.createObjectURL(blob);
+        
         setPreview(url);
-      } else {
-        // Standard desktop path
-        setPreview(convertFileSrc(file));
       }
+    } catch (err) {
+      console.error("Selection error:", err);
     }
-  } catch (err) {
-    console.error("Selection error:", err);
-  }
-};
+  };
 
   const runPrediction = async () => {
     if (!imagePath) return;
@@ -57,7 +55,7 @@ const selectImage = async () => {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>🌿 Minimus Plant Disease Detector</h1>
-      <p style={styles.subtitle}>Optimized ML for low-end devices</p>
+
 
       <button onClick={selectImage} style={styles.button}>
         Select Image
@@ -96,21 +94,6 @@ const selectImage = async () => {
   );
 }
 
-// Add this to your global CSS or a <style> tag for the loading effect
-const spinnerStyle = `
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .spinner::before {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-right: 8px;
-    border: 2px solid #ffffff;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-`;
 
 const styles: Record<string, React.CSSProperties> = {
   container: { maxWidth: 500, margin: "0 auto", padding: 40, textAlign: "center", fontFamily: "system-ui, sans-serif" },

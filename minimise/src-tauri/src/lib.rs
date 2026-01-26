@@ -3,11 +3,23 @@ use tract_nnef::prelude::*;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::io::Cursor;
+use minimus_sdk::{Minimus, MinimusModel, Prediction};
+use std::sync::OnceLock;
+use std::path::PathBuf;
 
 type Model = SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>;
 
 struct ModelState {
     model: RwLock<Option<Arc<Model>>>,
+}
+
+static MINIMUS: OnceLock<Minimus> = OnceLock::new();
+
+// fn get_minimus(cache_dir: PathBuf,work_dir: PathBuf) -> &'static Minimus {
+//     MINIMUS.get_or_init(Minimus::new(cache_dir,work_dir))
+// }
+struct AppState {
+    model: RwLock<Option<Arc<MinimusModel>>>,
 }
 
 static CLASSES: &[&str] = &[
@@ -27,7 +39,7 @@ static CLASSES: &[&str] = &[
 
 #[tauri::command]
 async fn predict(
-    state: State<'_, ModelState>, 
+    state: State<'_, AppState>, 
     image_bytes: Vec<u8>
 ) -> Result<String, String> {
     let model_lock = state.model.read().unwrap();
@@ -43,7 +55,7 @@ async fn predict(
         rgb.get_pixel(x as u32, y as u32)[c] as f32 / 255.0
     }).into();
 
-    let result = model.run(tvec!(tensor.into()))
+    let result = model.plan.run(tvec!(tensor.into()))
         .map_err(|e| format!("Inference failed: {:#}", e))?;
 
     let probs = result[0].to_array_view::<f32>().map_err(|e| e.to_string())?;
@@ -57,6 +69,23 @@ async fn predict(
     Ok(CLASSES[max_idx].to_string())
 }
 
+// #[tauri::command]
+// async fn get_model_info() -> Result<String, String> {
+//     let minimus = get_minimus();
+    
+//     let info = minimus.model_info("plant-disease-v1")
+//         .ok_or("Model not found in registry")?;
+    
+//     Ok(serde_json::to_string(info).unwrap())
+// }
+
+// #[tauri::command]
+// async fn check_model_status() -> Result<bool, String> {
+//     let minimus = get_minimus();
+//     Ok(minimus.is_downloaded("plant-disease-v1"))
+// }
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -64,30 +93,57 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let state = ModelState { model: RwLock::new(None) };
+            let state = AppState { model: RwLock::new(None) };
             app.manage(state);
-            let handle = app.handle().clone();
             
-            std::thread::spawn(move || {
-                // Include NNEF tar as bytes
-                let model_bytes: &[u8] = include_bytes!("../plant_disease.nnef.tar");
-                let cursor = Cursor::new(model_bytes);
-                
-                let model = tract_nnef::nnef()
-                    .with_tract_core()
-                    .model_for_read(&mut std::io::BufReader::new(cursor))
-                    .expect("Failed to parse NNEF")
-                    .into_optimized()
-                    .expect("Failed to optimize")
-                    .into_runnable()
-                    .expect("Failed to make runnable");
 
-                let state = handle.state::<ModelState>();
-                let mut model_lock = state.model.write().unwrap();
-                *model_lock = Some(Arc::new(model));
+            let app_data = app.path().app_data_dir().expect("Failed to get data dir");
+            let cache_dir = app_data.join("models");
+            let work_dir = app_data.join("runtime_temp");
+
+            let handle = app.handle().clone();
+
+            MINIMUS.set(Minimus::new(cache_dir, work_dir))
+                .map_err(|_| "SDK already initialized").unwrap();
+
+            tauri::async_runtime::spawn(async move {
+                let minimus = MINIMUS.get().unwrap();
                 
-                println!("✅ NNEF MODEL LOADED SUCCESSFULLY");
+                println!("📦 Loading plant disease model...");
+                
+                match minimus.load("plant-disease-v1").await {
+                    Ok(model) => {
+                        let state = handle.state::<AppState>();
+                        let mut model_lock = state.model.write().unwrap();
+                        *model_lock = Some(Arc::new(model));
+                        println!("✅ Model loaded successfully!");
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to load model: {}", e);
+                    }
+                }
             });
+            
+            // std::thread::spawn(move || {
+            //     // Include NNEF tar as bytes
+            //     let model_bytes: &[u8] = include_bytes!("../plant_disease.nnef.tar");
+            //     let cursor = Cursor::new(model_bytes);
+                
+            //     let model = tract_nnef::nnef()
+            //         .with_tract_core()
+            //         .model_for_read(&mut std::io::BufReader::new(cursor))
+            //         .expect("Failed to parse NNEF")
+            //         .into_optimized()
+            //         .expect("Failed to optimize")
+            //         .into_runnable()
+            //         .expect("Failed to make runnable");
+
+            //     let state = handle.state::<ModelState>();
+            //     let mut model_lock = state.model.write().unwrap();
+            //     *model_lock = Some(Arc::new(model));
+                
+            //     println!("✅ NNEF MODEL LOADED SUCCESSFULLY");
+            // });
             
             Ok(())
         })

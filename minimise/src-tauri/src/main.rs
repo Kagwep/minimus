@@ -4,9 +4,15 @@ use image::{GenericImageView, imageops::FilterType};
 use ndarray::{Array, Array4};
 use tract_onnx::prelude::*;
 use std::path::Path;
-use minimus_sdk::Minimus;
-use std::sync::OnceLock;
+use minimus_sdk::{Minimus, MinimusModel};
+use std::sync::{Arc, RwLock, OnceLock};
 use once_cell::sync::Lazy;
+use tauri::Manager;
+
+// 1. Define the AppState to hold the model globally once loaded
+struct AppState {
+    model: RwLock<Option<Arc<MinimusModel>>>,
+}
 
 type Model = SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>;
 
@@ -42,15 +48,22 @@ static CLASSES: &[&str] = &[
 
 
 
+// 2. Global SDK instance
 static MINIMUS: OnceLock<Minimus> = OnceLock::new();
 
 fn get_minimus() -> &'static Minimus {
-    MINIMUS.get_or_init(Minimus::new)
+    MINIMUS.get().expect("Minimus SDK not initialized")
 }
 
+// 3. The prediction command
 #[tauri::command]
-async fn predict(image_path: String) -> Result<String, String> {
-    let model = get_model()?;
+async fn predict(
+    state: tauri::State<'_, AppState>,
+    image_path: String,
+) -> Result<String, String> {
+    // Access the model from state
+    let model_lock = state.model.read().unwrap();
+    let model = model_lock.as_ref().ok_or("Model not loaded yet")?;
     // 2. Preprocess image into a Tract Tensor
     let img = image::open(&image_path).map_err(|e| e.to_string())?;
     let resized = img.resize_exact(256, 256, image::imageops::FilterType::Triangle);
@@ -62,7 +75,7 @@ async fn predict(image_path: String) -> Result<String, String> {
     }).into();
 
     // 3. Run inference
-    let result = model.run(tvec!(tensor.into()))
+    let result = model.plan.run(tvec!(tensor.into()))
         .map_err(|e| format!("Inference failed: {}", e))?;
 
     // 4. Extract results
@@ -86,6 +99,39 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // Setup paths using Tauri v2 path resolver
+            let app_data = app.path().app_data_dir().expect("Failed to resolve app data dir");
+            let cache_dir = app_data.join("models");
+            let work_dir = app_data.join("temp_runtime");
+
+            // Initialize SDK
+            let sdk = Minimus::new(cache_dir, work_dir);
+            MINIMUS.set(sdk).map_err(|_| "SDK already init").unwrap();
+
+            // Register State
+            app.manage(AppState {
+                model: RwLock::new(None),
+            });
+
+            // Async background load
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let sdk = get_minimus();
+                // This ID must match your registry entry
+                match sdk.load("plant-disease-v1").await {
+                    Ok(model) => {
+                        let state = handle.state::<AppState>();
+                        let mut lock = state.model.write().unwrap();
+                        *lock = Some(Arc::new(model));
+                        println!("✅ SDK: Model loaded successfully into state.");
+                    }
+                    Err(e) => eprintln!("❌ SDK: Failed to load model: {}", e),
+                }
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![predict])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

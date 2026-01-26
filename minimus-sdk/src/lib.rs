@@ -73,28 +73,34 @@ pub use error::MinimusError;
 pub use inference::{InferenceConfig, Prediction};
 pub use loader::ModelLoader;
 pub use model::MinimusModel;
-pub use registry::{ModelInfo, ModelInfoBuilder, ModelRegistry, ModelType, REGISTRY};
+pub use registry::{ModelInfo, ModelInfoBuilder, ModelRegistry, ModelType, REGISTRY,ModelFormat};
 
 use std::path::PathBuf;
 
 /// Main SDK interface
 pub struct Minimus {
     loader: ModelLoader,
+    work_dir: PathBuf,
 }
 
 impl Minimus {
     /// Create a new SDK instance with default cache directory
-    pub fn new() -> Self {
+/// Initialize with explicit paths (The safe way for Cross-Platform)
+    pub fn new(cache_dir: PathBuf, work_dir: PathBuf) -> Self {
+        // Ensure paths exist
+        std::fs::create_dir_all(&cache_dir).ok();
+        std::fs::create_dir_all(&work_dir).ok();
+        
         Self {
-            loader: ModelLoader::default(),
+            loader: ModelLoader::new(cache_dir),
+            work_dir,
         }
     }
 
     /// Create SDK with a custom cache directory
     pub fn with_cache_dir(cache_dir: PathBuf) -> Self {
-        Self {
-            loader: ModelLoader::new(cache_dir),
-        }
+        let work_dir = cache_dir.join(".tmp");
+        Self::new(cache_dir, work_dir)
     }
 
     /// Get the model loader
@@ -112,6 +118,10 @@ impl Minimus {
     /// List models by type
     pub fn models_by_type(&self, model_type: ModelType) -> Vec<&ModelInfo> {
         REGISTRY.list_by_type(model_type)
+    }
+
+    pub fn model_format(&self, model_id: &str) -> Option<ModelFormat> {
+    REGISTRY.get(model_id).map(|info| info.format.clone())
     }
 
     /// Search models by name or description
@@ -158,7 +168,7 @@ impl Minimus {
             .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?;
 
         let bytes = self.loader.load_bytes(info).await?;
-        MinimusModel::load(model_id, &bytes)
+        MinimusModel::load(model_id, &bytes,self.work_dir.clone())
     }
 
     /// Load a model by ID (cache-only when download feature is disabled)
@@ -178,7 +188,7 @@ impl Minimus {
         model_id: &str,
         bytes: &[u8],
     ) -> Result<MinimusModel, MinimusError> {
-        MinimusModel::load(model_id, bytes)
+        MinimusModel::load(model_id, bytes,self.work_dir.clone())
     }
 
     /// Load a model from bytes with custom config
@@ -188,7 +198,7 @@ impl Minimus {
         bytes: &[u8],
         config: InferenceConfig,
     ) -> Result<MinimusModel, MinimusError> {
-        MinimusModel::load_with_config(model_id, bytes, config)
+        MinimusModel::load_with_config(model_id, bytes, config,self.work_dir.clone())
     }
 
     /// Load a custom model (not in registry)
@@ -197,7 +207,7 @@ impl Minimus {
         bytes: &[u8],
         info: ModelInfo,
     ) -> Result<MinimusModel, MinimusError> {
-        MinimusModel::load_custom(bytes, info)
+        MinimusModel::load_custom(bytes, info,self.work_dir.clone())
     }
 
     // ========== Download Management ==========
@@ -247,7 +257,15 @@ impl Minimus {
 
 impl Default for Minimus {
     fn default() -> Self {
-        Self::new()
+        // Use the OS-provided cache dir, or fall back to a local folder
+        let base_dir = dirs::cache_dir()
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+            .join("minimus");
+            
+        let cache_dir = base_dir.join("models");
+        let work_dir = base_dir.join("runtime");
+        
+        Self::new(cache_dir, work_dir)
     }
 }
 
@@ -259,7 +277,14 @@ pub fn quick_predict(
     model_bytes: &[u8],
     image_bytes: &[u8],
 ) -> Result<Prediction, MinimusError> {
-    let model = MinimusModel::load(model_id, model_bytes)?;
+        // Use the OS-provided cache dir, or fall back to a local folder
+    let base_dir = dirs::cache_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+        .join("minimus");
+        
+    let cache_dir = base_dir.join("models");
+    let work_dir = base_dir.join("runtime");
+    let model = MinimusModel::load(model_id, model_bytes,work_dir)?;
     model.predict(image_bytes)
 }
 

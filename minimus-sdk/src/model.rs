@@ -1,58 +1,61 @@
 use std::sync::Arc;
+use tract_nnef::prelude::*;
 use tract_onnx::prelude::*;
 
 use crate::error::MinimusError;
 use crate::inference::{InferenceConfig, Prediction};
-use crate::registry::{ModelInfo, REGISTRY};
+use crate::registry::{ModelInfo, REGISTRY,ModelFormat};
+use std::path::PathBuf;
 
 /// Type alias for the tract model plan
 type ModelPlan = SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>;
 
 /// A loaded ML model ready for inference
 pub struct MinimusModel {
-    plan: Arc<ModelPlan>,
-    info: ModelInfo,
-    config: InferenceConfig,
+    pub plan: Arc<ModelPlan>,
+    pub info: ModelInfo,
+    pub config: InferenceConfig,
 }
 
+
 impl MinimusModel {
-    /// Load a registered model by ID
-    pub fn load(model_id: &str, onnx_bytes: &[u8]) -> Result<Self, MinimusError> {
-        Self::load_with_config(model_id, onnx_bytes, InferenceConfig::default())
+    /// Load a registered model by ID from NNEF bytes
+    pub fn load(model_id: &str, model_bytes: &[u8],work_dir: PathBuf) -> Result<Self, MinimusError> {
+        Self::load_with_config(model_id, model_bytes, InferenceConfig::default(),work_dir)
     }
 
     /// Load a registered model with custom inference config
     pub fn load_with_config(
         model_id: &str,
-        onnx_bytes: &[u8],
+        model_bytes: &[u8],
         config: InferenceConfig,
+        work_dir: PathBuf
     ) -> Result<Self, MinimusError> {
         let info = REGISTRY
             .get(model_id)
             .ok_or_else(|| MinimusError::ModelNotFound(model_id.to_string()))?
             .clone();
 
-        Self::load_with_info(onnx_bytes, info, config)
+        Self::load_with_info(model_bytes, info, config,work_dir)
     }
 
     /// Load a custom model with provided info
     pub fn load_custom(
-        onnx_bytes: &[u8],
+        model_bytes: &[u8],
         info: ModelInfo,
+        work_dir: PathBuf
     ) -> Result<Self, MinimusError> {
-        Self::load_with_info(onnx_bytes, info, InferenceConfig::default())
+        Self::load_with_info(model_bytes, info, InferenceConfig::default(),work_dir)
     }
-
     /// Load a custom model with provided info and config
     pub fn load_with_info(
-        onnx_bytes: &[u8],
+        model_bytes: &[u8],
         info: ModelInfo,
         config: InferenceConfig,
+        work_dir: PathBuf
     ) -> Result<Self, MinimusError> {
         let (w, h) = info.input_size;
         let c = info.channels as i64;
-
-        let mut cursor = std::io::Cursor::new(onnx_bytes);
 
         let input_shape = if config.channels_first {
             [1, c, h as i64, w as i64]
@@ -60,11 +63,23 @@ impl MinimusModel {
             [1, h as i64, w as i64, c]
         };
 
-        let plan = tract_onnx::onnx()
-            .model_for_read(&mut cursor)?
-            .with_input_fact(0, f32::fact(&input_shape).into())?
-            .into_typed()?
-            .into_runnable()?;
+        // Load based on format
+        let plan = match info.format {
+            ModelFormat::NnefTar => {
+                // For .nnef.tar files, extract and load
+                Self::load_nnef_tar(model_bytes, &input_shape,work_dir)?
+            }
+            ModelFormat::NnefDirectory => {
+                // For NNEF directories (you'd need to pass a path instead)
+                return Err(MinimusError::ModelLoad(
+                    "NnefDirectory format requires a path, not bytes".into()
+                ));
+            }
+            ModelFormat::Onnx => {
+                // Fallback to ONNX if needed
+                Self::load_onnx(model_bytes, &input_shape)?
+            }
+        };
 
         Ok(Self {
             plan: Arc::new(plan),
@@ -72,6 +87,53 @@ impl MinimusModel {
             config,
         })
     }
+
+
+        /// Load NNEF tar file from bytes
+        /// Load NNEF tar file from bytes
+        fn load_nnef_tar(tar_bytes: &[u8], input_shape: &[i64],work_dir: PathBuf) -> Result<ModelPlan, MinimusError> {
+            use std::io::Cursor;
+            use std::time::{SystemTime, UNIX_EPOCH};
+            
+
+            let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+            
+            let temp_dir = work_dir.join(format!("model_unpack_{}", timestamp));
+            std::fs::create_dir_all(&temp_dir)?;
+
+            // Extract tar
+            let mut archive = tar::Archive::new(Cursor::new(tar_bytes));
+            archive.unpack(&temp_dir)?;
+
+            // Load NNEF model from extracted directory
+            let plan = tract_nnef::nnef()
+                .with_tract_core()
+                .model_for_path(&temp_dir)?
+                .with_input_fact(0, f32::fact(input_shape).into())?
+                .into_optimized()?
+                .into_runnable()?;
+
+            // Clean up temp directory
+            let _ = std::fs::remove_dir_all(&temp_dir);
+
+            Ok(plan)
+        }
+
+        /// Load ONNX model from bytes (fallback)
+        fn load_onnx(onnx_bytes: &[u8], input_shape: &[i64]) -> Result<ModelPlan, MinimusError> {
+            let mut cursor = std::io::Cursor::new(onnx_bytes);
+
+            let plan = tract_onnx::onnx()
+                .model_for_read(&mut cursor)?
+                .with_input_fact(0, f32::fact(input_shape).into())?
+                .into_optimized()?
+                .into_runnable()?;
+
+            Ok(plan)
+        }
 
     /// Get model info
     pub fn info(&self) -> &ModelInfo {

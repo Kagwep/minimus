@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 use crate::error::MinimusError;
-use crate::registry::ModelInfo;
+use crate::registry::{ModelInfo,ModelFormat};
 
 #[cfg(feature = "download")]
 use sha2::{Sha256, Digest};
@@ -42,10 +42,16 @@ impl ModelLoader {
         &self.cache_dir
     }
 
-    /// Get the local file path for a model
+    /// Get the local file path for a model based on its format
     pub fn model_path(&self, info: &ModelInfo) -> PathBuf {
+        let extension = match info.format {
+            ModelFormat::NnefTar => "nnef.tar",
+            ModelFormat::NnefDirectory => "nnef",
+            ModelFormat::Onnx => "onnx",
+        };
+        
         self.cache_dir
-            .join(format!("{}-{}.onnx", info.id, info.version))
+            .join(format!("{}-{}.{}", info.id, info.version, extension))
     }
 
     /// Check if a model is cached locally
@@ -133,12 +139,15 @@ impl ModelLoader {
     /// Verify SHA256 checksum
     #[cfg(feature = "download")]
     fn verify_checksum(&self, bytes: &[u8], expected: &str) -> Result<(), MinimusError> {
+        // Remove "sha256:" prefix if present
+        let expected_clean = expected.trim_start_matches("sha256:");
         let hash = format!("{:x}", Sha256::digest(bytes));
-        if hash != expected.to_lowercase() {
+        if hash != expected_clean.to_lowercase() {
             return Err(MinimusError::ChecksumMismatch);
         }
         Ok(())
     }
+
 
     /// Delete a cached model
     pub fn clear(&self, info: &ModelInfo) -> Result<(), MinimusError> {
@@ -191,7 +200,12 @@ impl ModelLoader {
                 entries
                     .filter_map(|e| e.ok())
                     .map(|e| e.path())
-                    .filter(|p| p.extension().map(|e| e == "onnx").unwrap_or(false))
+                    .filter(|p| {
+                        p.extension()
+                            .and_then(|e| e.to_str())
+                            .map(|e| e == "onnx" || e == "tar" || e.ends_with("nnef.tar"))
+                            .unwrap_or(false)
+                    })
                     .collect()
             })
             .unwrap_or_default()

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
+
 import "./App.css"
 
 function App() {
@@ -83,21 +83,7 @@ function App() {
   );
 }
 
-// Add this to your global CSS or a <style> tag for the loading effect
-const spinnerStyle = `
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .spinner::before {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-right: 8px;
-    border: 2px solid #ffffff;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-`;
+
 
 const styles: Record<string, React.CSSProperties> = {
   container: { maxWidth: 500, margin: "0 auto", padding: 40, textAlign: "center", fontFamily: "system-ui, sans-serif" },

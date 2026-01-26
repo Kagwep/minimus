@@ -11,6 +11,13 @@ pub enum ModelType {
     Custom,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ModelFormat {
+    NnefTar,
+    NnefDirectory,
+    Onnx,
+}
+
 /// Metadata about a model (no weights included)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInfo {
@@ -23,6 +30,7 @@ pub struct ModelInfo {
     /// Type of model
     pub model_type: ModelType,
     /// Input dimensions (width, height)
+    pub format: ModelFormat,
     pub input_size: (u32, u32),
     /// Number of channels (usually 3 for RGB)
     pub channels: u32,
@@ -62,6 +70,7 @@ impl ModelInfoBuilder {
                 channels: 3,
                 classes: Vec::new(),
                 version: "1.0.0".into(),
+                format:ModelFormat::NnefTar,
                 size_mb: 0.0,
                 download_url: None,
                 sha256: None,
@@ -161,8 +170,8 @@ impl ModelRegistry {
                 .classes_static(&crate::models::plant_disease::CLASSES)
                 .version("1.0.0")
                 .size_mb(12.5)
-                .download_url("https://github.com/Kagwep/minimus/releases/download/models-v1.0.0/plant-disease-v1.onnx")
-                .sha256("34177F41F3EAE3966989FEE1F022A22BC8798A11B7798BD8EB6CA246DB216C26") 
+                .download_url("https://github.com/Kagwep/minimus/releases/download/models-v1.0.0/plant_disease.nnef.tar")
+                .sha256("sha256:a80789a823be847c1b17a35f47b3dd3faa4ebd9bcbf3b954276895eae2a08cf1") 
                 .build()
         );
 
