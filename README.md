@@ -20,7 +20,7 @@ Minimus SDK provides pre-trained, optimized machine learning models that "just w
 
 | Model ID | Description | Classes | Size |
 |----------|-------------|---------|------|
-| `plant-disease-v1` | Identifies plant diseases from leaf images | 38 | 12.5 MB |
+| `plant-disease-v1` | Identifies plant diseases from leaf images | 38 | 25 MB |
 
 ### Livestock (Coming Soon)
 
@@ -60,6 +60,60 @@ Minimus SDK provides pre-trained, optimized machine learning models that "just w
 - [ ] Model quantization utilities
 - [ ] Android/iOS examples
 - [ ] WASM support
+
+
+## Demo Application
+
+We've built a proof-of-concept Android app that demonstrates the Minimus SDK in action.
+
+### Plant Disease Detector App
+
+**Download:** [minimise.apk](https://github.com/Kagwep/minimus/releases/download/models-v1.0.0/minimise.apk)
+
+This demo app showcases real-world usage of the Minimus SDK:
+
+- **Uses the SDK** - Integrates Minimus SDK to load the `plant-disease-v1` model
+- **On-device inference** - Performs plant disease detection entirely on your phone
+- **Offline-capable** - Works without internet after initial model download
+- **Simple UX** - Take a photo or select from gallery, get instant diagnosis
+
+### Features Demonstrated
+
+- ✅ Automatic model downloading and caching
+- ✅ Real-time image classification
+- ✅ 38 plant disease classes detection
+- ✅ Low-latency inference on mobile hardware
+- ✅ Offline-first operation
+
+### Try It
+
+1. Download the APK to your Android device
+2. Install (you may need to enable "Install from unknown sources")
+3. Grant camera permissions
+4. Take a photo of a plant leaf
+5. Get instant disease detection results
+
+> **Note:** First launch will download the model (~25 MB). Subsequent uses are fully offline.
+
+## Test Images
+
+Can't find a diseased plant to test with? No problem! We've included sample test images in the root of this repository that you can use to try out the SDK and demo app.
+
+### Available Test Images
+
+Browse the test images in the repository root to see examples of various plant diseases that the model can detect. These images are perfect for:
+
+- Testing the SDK integration
+- Trying out the demo app
+- Validating your implementation
+- Understanding the model's capabilities
+
+### Using Test Images
+
+**With the Demo App:**
+1. Download test images to your phone
+2. Open the app and select "Choose from Gallery"
+3. Select a test image to see instant disease detection
 
 ## Contributing
 
