@@ -13,42 +13,40 @@ Optimized ML inference SDK for embedded and mobile devices.
 
 ## Quick Start
 
+### For Developers
 ```rust
-use minimus_sdk::Minimus;
+use minimus_sdk::ModelRegistry;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let minimus = Minimus::new();
-
-    // List available models
-    for model in minimus.available_models() {
-        let status = if minimus.is_downloaded(&model.id) { "✓" } else { "○" };
-        println!("{} {} - {}", status, model.name, model.description);
-    }
-
-    // Load a model (auto-downloads if needed)
-    let model = minimus.load("plant-disease-v1").await?;
-
-    // Run prediction
-    let image = std::fs::read("leaf.jpg")?;
-    let result = model.predict(&image)?;
+    // Initialize registry
+    let registry = ModelRegistry::new().await?;
     
-    println!("Prediction: {} ({:.1}%)", 
-        result.display_label(), 
-        result.confidence_percent()
-    );
-
+    // Load model (downloads automatically on first use)
+    let model = registry.get_model("plant-disease-v1").await?;
+    
+    // Run inference
+    let result = model.predict("path/to/leaf.jpg").await?;
+    
+    println!("Disease detected: {} ({:.2}% confidence)", 
+             result.class_name, 
+             result.confidence * 100.0);
+    
     Ok(())
 }
 ```
 
-## Installation
+### Installation
 
 Add to your `Cargo.toml`:
-
 ```toml
 [dependencies]
-minimus-sdk = "0.1"
+minimus-sdk = "0.1.0"
+```
+
+Or install via cargo:
+```bash
+cargo add minimus-sdk
 ```
 
 ### Feature Flags

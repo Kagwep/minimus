@@ -1,5 +1,7 @@
 # Minimus SDK
 
+#RustAfricaHackathon
+
 Optimized ML inference SDK for mobile and embedded devices.
 
 ## Overview
@@ -114,6 +116,66 @@ Browse the test images in the repository root to see examples of various plant d
 1. Download test images to your phone
 2. Open the app and select "Choose from Gallery"
 3. Select a test image to see instant disease detection
+
+
+## Quick Start
+
+### For Developers
+```rust
+use minimus_sdk::ModelRegistry;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize registry
+    let registry = ModelRegistry::new().await?;
+    
+    // Load model (downloads automatically on first use)
+    let model = registry.get_model("plant-disease-v1").await?;
+    
+    // Run inference
+    let result = model.predict("path/to/leaf.jpg").await?;
+    
+    println!("Disease detected: {} ({:.2}% confidence)", 
+             result.class_name, 
+             result.confidence * 100.0);
+    
+    Ok(())
+}
+```
+
+### Installation
+
+Add to your `Cargo.toml`:
+```toml
+[dependencies]
+minimus-sdk = "0.1.0"
+```
+
+Or install via cargo:
+```bash
+cargo add minimus-sdk
+```
+
+## API Reference
+
+### ModelRegistry
+
+- `new() -> Result<ModelRegistry>` - Initialize registry
+- `list_models() -> Vec<ModelInfo>` - List available models
+- `get_model(id: &str) -> Result<Model>` - Load/download model
+- `clear_cache()` - Remove cached models
+
+### Model
+
+- `predict(image_path: &str) -> Result<Prediction>` - Run inference
+- `predict_batch(images: Vec<&str>) -> Result<Vec<Prediction>>` - Batch inference
+- `info() -> ModelInfo` - Get model metadata
+
+### Prediction
+
+- `class_name: String` - Detected class
+- `confidence: f32` - Prediction confidence (0.0-1.0)
+- `all_scores: Vec<(String, f32)>` - All class probabilities
 
 ## Contributing
 

@@ -2,10 +2,12 @@
 name = "minimus-sdk"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Peter Kagwe <peterkagwe698@gmail.com>"]
 description = "Optimized ML inference SDK for embedded and mobile devices"
 license = "MIT"
-repository = "https://github.com/yourusername/minimus-sdk"
+repository = "https://github.com/Kagwep/minimus"
+homepage = "https://github.com/Kagwep/minimus"
+documentation = "https://docs.rs/minimus-sdk"
 keywords = ["machine-learning", "inference", "embedded", "mobile", "onnx"]
 categories = ["science", "embedded", "wasm"]
 readme = "README.md"
